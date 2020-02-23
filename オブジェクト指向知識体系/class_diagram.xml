@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<systems xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="class_diagram.xsd">
+	<system name="テスト体系">
+		<class name="自">
+			<class name="親">
+			</class>
+			<class name="親2">
+				<class name="祖父母">
+					<class name="曾祖父母">
+					</class>
+					<class name="曾祖父母2">
+					</class>
+				</class>
+			</class>
+		</class>
+		<class name="自2">
+		</class>
+	</system>
+</systems>

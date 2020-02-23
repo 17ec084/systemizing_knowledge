@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<xsd:element name="systems">
+	<xsd:complexType>
+		<xsd:sequence>
+			<xsd:element name="system">
+			<xsd:complexType>
+				<xsd:sequence>
+					<xsd:group ref="class"/>
+				</xsd:sequence>
+				<xsd:attribute name="name" type="xsd:string" use="required"/>
+			</xsd:complexType>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+    </xsd:element>
+
+	<xsd:group name="class"> <!-- 再帰呼び出しにより、任意世代に対応 -->
+		<xsd:sequence>
+			<xsd:element name="class" minOccurs="0" maxOccurs="unbounded">
+			<xsd:complexType>
+				<xsd:sequence>
+					<xsd:group ref="class"/>
+				</xsd:sequence>
+				<xsd:attribute name="name" type="xsd:string" use="required"/><!--
+				<xsd:attribute name="degree" type="xsd:nonNegativeInteger" use="option"/>
+				<xsd:attribute name="last_id" type="xsd:nonNegativeInteger" use="option"/> -->
+			</xsd:complexType>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:group>
+
+</xsd:schema>
