@@ -38,63 +38,12 @@ class XmlSheetTree
 
     /**
      * 最後のノードの次に、新しいノードを加える<br>
-     * <br>詳細説明<br>
-     * idなしでノードを追加するコードは、次のコードに等価である。<br>
-     * <br><table><tbody><tr><td><code><xmp>
-    if($next_generation==-1)
-    {   //親クラスを追加する場合
-        //最後のノードのparentsに書き込む
-        eval($this->last_node_str||'["parents"][0] = '||$new_node||";");
-        //evalは
-        //「(インスタンス)->tree_as_array[(最後のノードへのインデックス)]["parents"][0]
-        // = ["name" => ($class_name), "parents" => []]」
-        //を実行
-        $this->last_node_str = $this->last_node_str||'["parents"][0]';
-    }
-    else if($next_generation==0)
-    {   //配偶者クラスを追加する場合
-        //最後のノードの子クラス(親ノード)のparentsに追加する。
-        $matches = [];
-        preg_match
-        ("/(^(.|[ \r\n])*)\[[ \t\r\n]*.parents.[ \t\r\n]*\][ \t\r\n]*\[[ \t\r\n]*[0-9]*[ \t\r\n]*\][ \t\r\n]*$/",
-         $this->last_node_str,
-         $matches);
-        $last_nodes_child_str = $matches[1];
-        $last_nodes_final_idx = $matches[3];
-        eval($last_nodes_child_str||"['parents'][$last_nodes_final_idx+1] = "||$new_node||";");
-        //evalは
-        //「(インスタンス)->tree_as_array[(最後のノードへのインデックスから
-        //一番右の['parents'][(数字)]を1回切り落としたもの)]["parents"][(数字)+1]
-        // = ["name" => ($class_name), "parents" => []]」
-        //を実行
-        $this->last_node_str = $last_nodes_child_str||"['parents'][$last_nodes_final_idx+1]'";
-    }
-    else if($next_generation>=1)
-    {   //子孫クラスを追加する場合
-        //最後のノードの子クラス(親ノード)のparentsに追加する。
-        $matches = [];
-        $last_nodes_child_str = $this->last_node_str;
-        for($i=0; $i<$next_generation+1; $i++)
-        {
-            preg_match
-            ("/(^(.|[ \r\n])*)\[[ \t\r\n]*.parents.[ \t\r\n]*\][ \t\r\n]*\[[ \t\r\n]*[0-9]*[ \t\r\n]*\][ \t\r\n]*$/",
-                $last_nodes_child_str,
-                $matches);
-            $last_nodes_child_str = $matches[1];
-            $last_nodes_final_idx = $matches[3];
-
-        }
-        eval($last_nodes_child_str||"['parents'][$last_nodes_final_idx+1] = "||$new_node||";");
-        //evalは
-        //「(インスタンス)->tree_as_array[(最後のノードへのインデックスから
-        //一番右の['parents'][(数字)]を$next_generation+1回切り落としたもの)]["parents"][(数字)+1]
-        // = ["name" => ($class_name), "parents" => []]」
-        //を実行
-        $this->last_node_str = $last_nodes_child_str||"['parents'][$last_nodes_final_idx+1]'";
-    }
-     * </xmp></code></td></tr></tbody></table><br>
      * @param int $next_generation 最後のノードから見て、次のノードは何レベル分上であるか。
-     * -1以上でかつその数値分上のレベルへ進んでも最高レベルを上回らないような整数
+     * -1以上でかつその数値分上のレベルへ進んでも最高レベルを上回らないような整数。<br>
+     * この引数によるノードの追加の仕組みは一見無駄に複雑だが、<br>
+     * 「クラス関係記録シート」をXMLReaderでread()しながら追加していくとき、<br>
+     * 「END ELEMENT」ノード(閉じタグノード)に途中で遭遇した回数-1がこのパラメータに対応するため、<br>
+     * XMLReaderを利用するコードが簡潔に書けるようになる。
      * @param string $class_name そのノードで表現するクラス名
      *
      */
@@ -179,6 +128,115 @@ class XmlSheetTree
      */
 
     function get_deep_copy():XmlSheetTree{return new XmlSheetTree($this);}
+
+    /**
+     * 子クラスを持たないクラスの<b>クラス名</b>を返却する
+     * @return array of string
+     */
+    function get_kid_classes():array
+    {
+        $serialized = $this->get_as_serialized();
+        $all_classes_names = array_column($serialized, "name");
+        $all_classes_parentses = array_column($serialized, "parents");
+        $all_classes_names_having_child = [];
+        foreach($all_classes_parentses as $class_parents)
+        {
+            $parents_names = array_column($class_parents, "name");
+            $all_classes_names_having_child = array_merge($all_classes_names_having_child, $parents_names);
+        }
+        $all_classes_names_having_child = array_unique($all_classes_names_having_child);
+        $all_classes_names_having_no_child = array_diff($all_classes_names, $all_classes_names_having_child);
+        return $all_classes_names_having_no_child;
+    }
+
+    function get_as_serialized():array
+    {
+        $all_classes_names = $this->get_all_classes_names();
+        $serialized = [];
+        foreach($all_classes_names as $class_name)
+        {
+            $parents = $this->get_parents_of($class_name);
+            $parents_ = [];
+            foreach($parents as $parent)
+            {
+                $parent["parents"] = [];//親より上の先祖の情報を消す
+                array_push($parents_, $parent);
+            }
+
+            array_push($serialized, ["name"=>$class_name, "parents"=>$parents_]);
+        }
+        return $serialized;
+    }
+
+    /**
+     * 指定されたクラスの親クラスを取得する
+     */
+    function get_parents_of(string $class_name):array
+    {
+        return $this->private_get_parents_of($class_name, $this->tree_as_array["parents"], []);
+    }
+
+    /**
+     * 再帰するprivateメソッド。
+     * @see XmlSheetTree::get_parents_of
+     */
+    private function private_get_parents_of(string $class_name, array $array, array $parents_already_found):array
+    {
+//print "array=\n";
+//var_dump($array);
+        foreach($array as $elem)
+        {
+//print "---\n";
+//print "elem=\n";
+//var_dump($elem);
+//print "---\n";
+//print "strcmp(".$elem['name'].", $class_name)\n";
+            if(strcmp($elem["name"], $class_name)==0)
+                $parents_already_found = array_merge($parents_already_found, $elem["parents"]);
+            else
+               if($elem["parents"]!=null)
+                 {
+                     $parents_already_found = $this->private_get_parents_of($class_name, $elem["parents"], $parents_already_found);
+                 }
+        }
+        return $parents_already_found;
+    }
+
+
+//    function get_as_systemized(){}//未完成,体系形の配列を返却する
+
+    function get_all_classes_names():array
+    {
+        $array_as_str = (string)$this;
+
+        $other_than_name = "(?:(?:(?:[^n]|(?:n[^a]))|(?:na[^m]))|(?:nam[^e]))*";
+        //文字列「name」以外にマッチするパターン
+
+        $garbage = "\"]=>[ \t\r\n]*string\([0-9]*\)[ \t\r\n]*\"";
+        //var_dumpで「name」キーとその値の間に挟まった内容 にマッチするパターン
+
+        $until_just_before_name_value = $other_than_name."name".$garbage;
+
+        $name_value = '[^"]*';
+
+        $ptn_without_delimiter = "(?:".$until_just_before_name_value."(".$name_value."))";
+
+        $pattern = "/$ptn_without_delimiter/s";
+
+        $matches = [];
+        preg_match_all($pattern, $array_as_str, $matches);
+
+        return array_unique($matches[1]);
+    }
+
+    //@override
+    function __toString()
+    {
+        ob_start();//output buffer開始
+        var_dump($this->get_deep_copy());//コンソールに流れず、バッファに溜まる
+        $array_as_str = ob_get_clean();//バッファに溜まった内容を取り出す。同時にバッファも終了しているようだ
+        return $array_as_str;
+    }
 }
 
 /*以下はテストクラス*/
@@ -206,6 +264,11 @@ class XmlSheetTreeTester
         $copy->add(0, "親クラス3-3をコピーにのみ追加");
         var_dump($sheet_tree->get_as_assoc_array());
         var_dump($copy->get_as_assoc_array());
+
+        var_dump($copy->get_all_classes_names());
+        var_dump($copy->get_parents_of("子クラス3"));
+        var_dump($copy->get_as_serialized());
+        var_dump($copy->get_kid_classes());
     }
 }
 
