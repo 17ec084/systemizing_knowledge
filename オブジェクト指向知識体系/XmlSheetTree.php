@@ -1,5 +1,10 @@
 <?php
 /**
+ * 警告<br>
+ * 本クラスでオーバライドした__toString()について、Xdebugの入った環境でバグを引き起こす潜在的な脆弱性が見つかった。<br>
+ * インスタンスを文字列に変換する機能を利用する場合、Xdebugを無効にするか、var_dump関数を書き換えない設定をすべきである。
+ * <hr>
+ *
  * 本来はXmlReaderSheetTreeの内部privateクラスとして造りたかったクラス。<br>
  * 外部からの呼び出しは想定していない。<br>
  * シートに対応する木構造を表すクラス<br>
@@ -203,7 +208,7 @@ class XmlSheetTree
     }
 
 
-//    function get_as_systemized(){}//未完成,体系形の配列を返却する
+//    function get_as_half_systemized(){}//未完成,半体系形の配列を返却する
 
     function get_all_classes_names():array
     {
@@ -230,6 +235,11 @@ class XmlSheetTree
     }
 
     //@override
+    /**
+     * @deprecated Xdebugの入った環境でバグを引き起こす潜在的な脆弱性が見つかった。<br>
+     * この機能を利用する場合、Xdebugを無効にするか、var_dump関数を書き換えない設定をすべきである。
+     * @return string
+     */
     function __toString()
     {
         ob_start();//output buffer開始
