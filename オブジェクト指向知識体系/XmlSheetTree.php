@@ -1,4 +1,6 @@
 <?php
+
+require 'TreeConverter.php';
 /**
  * 警告<br>
  * 本クラスでオーバライドした__toString()について、Xdebugの入った環境でバグを引き起こす潜在的な脆弱性が見つかった。<br>
@@ -39,6 +41,7 @@ class XmlSheetTree
     {
         $this->tree_as_array = $tree==null?["id"=> "meta-"]:$tree->tree_as_array;
         $this->last_node_str = $tree==null?'$this->tree_as_array':$tree->last_node_str;
+
     }
 
     /**
@@ -100,6 +103,8 @@ class XmlSheetTree
 
     }
 
+    function set_tree_as_array(array $tree_as_array){$this->tree_as_array = tree_as_array;}
+
     /**
      * @return array
      * <br>
@@ -156,21 +161,32 @@ class XmlSheetTree
 
     function get_as_serialized():array
     {
-        $all_classes_names = $this->get_all_classes_names();
-        $serialized = [];
-        foreach($all_classes_names as $class_name)
-        {
-            $parents = $this->get_parents_of($class_name);
-            $parents_ = [];
-            foreach($parents as $parent)
-            {
-                $parent["parents"] = [];//親より上の先祖の情報を消す
-                array_push($parents_, $parent);
-            }
+        return (new TreeConverter($this->get_deep_copy()))->serialize()->get();
+    }
+    /*
+     function get_as_serialied():array
+     {
+         $all_classes_names = $this->get_all_classes_names();
+         $serialized = [];
+         foreach($all_classes_names as $class_name)
+         {
+         $parents = $this->get_parents_of($class_name);
+         $parents_ = [];
+         foreach($parents as $parent)
+         {
+         $parent["parents"] = [];//親より上の先祖の情報を消す
+         array_push($parents_, $parent);
+         }
 
-            array_push($serialized, ["name"=>$class_name, "parents"=>$parents_]);
-        }
-        return $serialized;
+         array_push($serialized, ["name"=>$class_name, "parents"=>$parents_]);
+         }
+         return $serialized;
+     }
+     */
+
+    function get_as_half_systemized():array//半体系形の配列を返却する
+    {
+        return (new TreeConverter($this->get_deep_copy()))->half_systemize()->get();
     }
 
     /**
@@ -187,15 +203,8 @@ class XmlSheetTree
      */
     private function private_get_parents_of(string $class_name, array $array, array $parents_already_found):array
     {
-//print "array=\n";
-//var_dump($array);
         foreach($array as $elem)
         {
-//print "---\n";
-//print "elem=\n";
-//var_dump($elem);
-//print "---\n";
-//print "strcmp(".$elem['name'].", $class_name)\n";
             if(strcmp($elem["name"], $class_name)==0)
                 $parents_already_found = array_merge($parents_already_found, $elem["parents"]);
             else
@@ -207,8 +216,6 @@ class XmlSheetTree
         return $parents_already_found;
     }
 
-
-//    function get_as_half_systemized(){}//未完成,半体系形の配列を返却する
 
     function get_all_classes_names():array
     {
@@ -267,7 +274,8 @@ class XmlSheetTreeTester
         var_dump($sheet_tree->get_as_assoc_array());
         $sheet_tree->add(-1, "親クラス3-1");
         $sheet_tree->add(-1, "祖父母クラス3-1-1");
-        $sheet_tree->add(-1, "曾祖父母クラス3-1-1-1");
+      //$sheet_tree->add(-1, "曾祖父母クラス3-1-1-1");
+        $sheet_tree->add(-1, "子クラス2");
         $sheet_tree->add(2, "親クラス3-2");
         var_dump($sheet_tree->get_as_assoc_array());
         $copy = $sheet_tree->get_deep_copy();
@@ -277,10 +285,12 @@ class XmlSheetTreeTester
 
         var_dump($copy->get_all_classes_names());
         var_dump($copy->get_parents_of("子クラス3"));
+        print "--------------------------\n";
         var_dump($copy->get_as_serialized());
         var_dump($copy->get_kid_classes());
+        var_dump($copy->get_as_half_systemized());
     }
 }
 
-//new XmlSheetTreeTester();
+new XmlSheetTreeTester();
 ?>
