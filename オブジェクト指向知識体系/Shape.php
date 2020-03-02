@@ -68,7 +68,7 @@ class ShapeController
         }
         $this->shape->set_coords($coords);
         //hogeクラスでオーバライドの場合
-        //→if($this instanceof Hoge)
+        //→if($this->shape instanceof Hoge)
 
 
         return $this;
@@ -85,8 +85,9 @@ class ShapeController
         $coords = [];
         foreach($this->shape->get_coords() as $coord)
         {
-            $coord_x = $coord[$x]*cos($angle)-$coord[$y]*sin($angle);
-            $coord_y = $coord[$x]*sin($angle)+$coord[$y]*cos($angle);
+            $coord_x = $coord[$x]*cos(-$angle)-$coord[$y]*sin(-$angle);
+            $coord_y = $coord[$x]*sin(-$angle)+$coord[$y]*cos(-$angle);
+
 
             $coord[$x] = $coord_x;
             $coord[$y] = $coord_y;
@@ -96,6 +97,59 @@ class ShapeController
 
         return $this;
     }
+
+    /**
+     * 中心を軸に回転する
+     * @param float $angle
+     */
+    function rotate_center(float $angle):ShapeController
+    {
+        if($this->shape instanceof Rectangle)
+        {
+            $x = 0; $y = 1;
+
+            $angle = $this->shape->get_angle()+$angle;
+
+            $width = $this->shape->get_width();
+            $height = $this->shape->get_height();
+            $center_x = $this->shape->get_center()[$x];
+            $center_y = $this->shape->get_center()[$y];
+            $origin_centered = new Rectangle();//中心を原点に持ってきたインスタンスを作る
+            $origin_centered
+            ->set_coords
+            (-$width/2, $height/2,//A
+              $width/2, $height/2,//B
+              $width/2,-$height/2,//C
+             -$width/2,-$height/2)//D
+            ;
+            $controller = new ShapeController($origin_centered);
+            $this->shape->set_coords
+            (
+                $controller
+                ->rotate_origin($angle)
+                ->move($center_x, $center_y)
+                ->get_coords()
+            );
+        }
+        else
+       {
+            throw new Exception('この図形には対応していません');
+       }
+
+    }
+
+
+    /**
+     * 引数で与えた座標が図形によって占められているか否か
+     */
+    function has_eaten(array $coord):bool
+    {
+        if($this->shape instanceof Rectangle)
+        {
+
+        }
+    }
+
 
     /**
      * 図形の左端を返却
@@ -235,6 +289,126 @@ class ShapeController
 }
 
 /**
+ * 三角形
+ * @author <a href=http://github.com/17ec084>Tomotaka Hirata(17ec084)</a>
+ *
+ */
+class Angle3 extends Shape
+{
+    function get_coords():array{return $this->coords;}
+
+    function set_coords_6args(int $Ax, int $Ay, int $Bx, int $By, int $Cx, int $Cy)
+    {
+        $this->coords =
+        [
+            [$Ax, $Ay],
+            [$Bx, $By],
+            [$Cx, $Cy]
+        ];
+    }
+
+    function set_coords(array $coords):void
+    {
+
+        $this->set_coords_6args
+        ($coords[0][0], $coords[0][1], $coords[1][0], $coords[1][1],
+            $coords[2][0], $coords[2][1]);
+    }
+
+    /**
+     * 三角形の領域を表す数式を返却する
+     */
+    function get_region():string
+    {
+        return (new Angle3RegionReporter($this))->report();
+    }
+
+    /**
+     * 引数の点が三角形の内部または淵に位置するか否か
+     */
+    function has_eaten(array $food_coord):bool
+    {
+        return (new Angle3RegionReporter($this))->has_eaten($food_coord);
+    }
+}
+
+    /**
+     * Angle3の内部クラスとして造りたかったもの。<br>
+     * 外部からの利用は想定していない。
+     * @author <a href=http://github.com/17ec084>Tomotaka Hirata(17ec084)</a>
+     *
+     */
+    class Angle3RegionReporter
+    {
+        private $As;
+        private $Bs;
+        private $Cs;
+        private $formulas;
+
+        function __construct(Angle3 $angle3)
+        {
+            $A = $angle3->get_coords()[0];
+            $B = $angle3->get_coords()[1];
+            $C = $angle3->get_coords()[2];
+            $this->As = [$A, $B, $C];
+            $this->Bs = [$B, $C, $A];
+            $this->Cs = [$C, $A, $B];
+        }
+
+        /**
+         * 文字列形式で領域を表す数式を返却。<br>
+         */
+        function report():string
+        {
+            $x = 0; $y = 1;
+            $str = "";
+            for($i = 0; $i < 3; $i++)
+            {
+                $A = $this->As[$i]; $B = $this->Bs[$i]; $C = $this->Cs[$i];
+
+                if($A[$x] == $B[$x] || is_infinite(($A[$y]-$B[$y])/((float)($A[$x]-$B[$x]))))
+                //ABの式がx=□の形
+                    if($A[$x] < $C[$x])
+                        $str .= "x>=".$A[$x]."\n";
+                    else
+                      $str .= "x<=".$A[$x]."\n";
+                else//ABの式がy=ax+bの形
+                {
+                    $a = ($A[$y]-$B[$y])/((float)($A[$x]-$B[$x]));
+                    $b = $A[$y]-$a*$A[$x];
+                    if($C[$y]<$a*$C[$x]+$b)
+                        $str .= "y<=".$a."*x+(".$b.")\n";
+                    else
+                      $str .= "y>=".$a."*x+(".$b.")\n";
+                }
+            }
+            $this->formulas = explode("\n", rtrim($str, "\n"));
+            return $str;
+        }
+
+        /**
+         * 引数の座標が三角形により占められているか否かを判定する
+         * @param [int, int] $food_coord
+         */
+        function has_eaten(array $food_coord):bool
+       {
+            $this->report();
+            $x = $food_coord[0]; $y = $food_coord[1];
+            foreach($this->formulas as $formula)
+            {
+                $formula = preg_replace("/y/", $y, $formula);
+                $formula = preg_replace("/x/", $x, $formula);
+                if(!eval("return $formula;"))
+                    return false;
+            }
+            return true;
+        }
+
+
+    }
+
+
+/**
  * 四角形
  * @author <a href=http://github.com/17ec084>Tomotaka Hirata(17ec084)</a>
  *
@@ -256,7 +430,7 @@ class Angle4 extends Shape
 
     function set_coords(array $coords):void
     {
-var_dump($coords);
+
         $this->set_coords_8args
         ($coords[0][0], $coords[0][1], $coords[1][0], $coords[1][1],
          $coords[2][0], $coords[2][1], $coords[3][0], $coords[3][1]);
@@ -264,8 +438,128 @@ var_dump($coords);
 
 
 
+    /**
+     * 四角形の領域を表す数式を取得する。
+     */
+    function get_region():string
+    {
+        return (new Angle4RegionReporter($this))->report();
+    }
+
+    /**
+     * 引数の点が四角形の内部または淵に位置するか否か
+     */
+    function has_eaten(array $food_coord):bool
+    {
+        return (new Angle4RegionReporter($this))->has_eaten($food_coord);
+    }
+
+    /**
+     * <p>四角形が凹図形の場合、内角が180度を超える角が何番目であるかを0オリジンで返却。</p>
+     * <p>凸図形の場合、falseを返却する。
+     * 凹図形か凸図形かを判定したい場合、厳密な等号「[=!]==」が必要</p>
+     * <h1>アルゴリズム</h1>
+     * <p>各頂点を1度ずつ「内角が180度を超えている」と疑い、それ以外の3頂点で三角形を作る。
+     * この三角形の内部に疑われる頂点があった場合、疑いどおり、その頂点は内角が180度を超えている。</p>
+     */
+    function get_concave()
+    {
+        $i = 0;
+        foreach($this->coords as $suspected_coord)
+        {
+            $angle3 = new Angle3();
+            $angle3->set_coords(array_merge(array_diff($this->coords, [$suspected_coord])));
+            if($angle3->has_eaten($suspected_coord))
+                return $i;
+            $i++;
+       }
+       return false;
+    }
+
+    /**
+     * 2つの三角形に分割する。凸図形の場合は引数(0～3)番目の頂点およびその対角を結ぶ線分で切り分ける。<br>
+     * 凹図形の場合は、引数を無視し、分割可能な形で切り分ける
+     * @return [angle3, angle3]
+     * /
+    function split_to_angle3s(int $idx):array
+    {
+        if(($i=$this->get_concave())===false)//凸図形の場合
+        {
+            $triangleA =
+            [$this->coord[]];
+        }
+    }*/
+
 }
 
+
+    /**
+     * Angle4の内部クラスとして造りたかったもの。<br>
+     * 外部からの利用は想定していない。<br>
+     * また本来は、4以上角形に対応すべきかもしれず議論が必要だが、現段階では四角形のみに対応している。
+     * @author <a href=http://github.com/17ec084>Tomotaka Hirata(17ec084)</a>
+     *
+     */
+    class Angle4RegionReporter
+    {
+        private $a3rrs;
+        private $formulases;
+
+        /*function __construct(Angle4 $angle4)
+        {
+            if($angle4->get_concave()===false)//凸図形の場合
+
+        }*/
+
+        /**
+         * 文字列形式で領域を表す数式を返却。<br>
+         */
+        function report():string
+        {
+            $x = 0; $y = 1;
+            $str = "";
+            for($i = 0; $i < 3; $i++)
+            {
+                $A = $this->As[$i]; $B = $this->Bs[$i]; $C = $this->Cs[$i];
+
+                if($A[$x] == $B[$x] || is_infinite(($A[$y]-$B[$y])/((float)($A[$x]-$B[$x]))))
+                    //ABの式がx=□の形
+                    if($A[$x] < $C[$x])
+                        $str .= "x>=".$A[$x]."\n";
+                        else
+                            $str .= "x<=".$A[$x]."\n";
+                            else//ABの式がy=ax+bの形
+                            {
+                                $a = ($A[$y]-$B[$y])/((float)($A[$x]-$B[$x]));
+                                $b = $A[$y]-$a*$A[$x];
+                                if($C[$y]<$a*$C[$x]+$b)
+                                    $str .= "y<=".$a."*x+(".$b.")\n";
+                                    else
+                                        $str .= "y>=".$a."*x+(".$b.")\n";
+                            }
+            }
+            $this->formulas = explode("\n", rtrim($str, "\n"));
+            return $str;
+        }
+
+        /**
+         * 引数の座標が三角形により占められているか否かを判定する
+         * @param [int, int] $food_coord
+         */
+        function has_eaten(array $food_coord):bool
+        {
+            $this->report();
+            $x = $food_coord[0]; $y = $food_coord[1];
+            foreach($this->formulas as $formula)
+            {
+                $formula = preg_replace("/y/", $y, $formula);
+                $formula = preg_replace("/x/", $x, $formula);
+                if(!eval("return $formula;"))
+                    return false;
+            }
+            return true;
+        }
+    }
 
 /**
  * 矩形
@@ -278,6 +572,7 @@ class Rectangle extends Angle4
     private $height;
     private $width;
     private $angle;
+    private $judge=0.01;
 
     function get_coords():array{return $this->coords;}
 
@@ -286,23 +581,28 @@ class Rectangle extends Angle4
         parent::move($dx, $dy);
     }
 
+    /*
+     * 隠し機能
+     */
+    function set_judge(float $judge):void{$this->judge = $judge;}
+
     /**
      * 矩形の4頂点を指定する。<br>
      * 渡された4点が実際に矩形を作りうるかの判定も行う。<br>
-     * 作り売らないと判断した場合、例外を投げる。<br>
+     * 作り得ないと判断した場合、例外を投げる。<br>
      * 判断は、「矩形の任意の二辺は垂直または平行」による。
      * {@inheritDoc}
      * @see angle4::set_coords()
      */
     function set_coords_8args(int $Ax, int $Ay, int $Bx, int $By, int $Cx, int $Cy, int $Dx, int $Dy):void
     {
+
         //各辺の傾き
         $AB = ($Bx-$Ax!=0)?($By-$Ay)/(float)($Bx-$Ax):INF;
         $BC = ($Cx-$Bx!=0)?($Cy-$By)/(float)($Cx-$Bx):INF;
         $CD = ($Dx-$Cx!=0)?($Dy-$Cy)/(float)($Dx-$Cx):INF;
         $DA = ($Ax-$Dx!=0)?($Ay-$Dy)/(float)($Ax-$Dx):INF;
-
-        $this->center = [($Cx-$Ax)/2.0, ($Cy-$Ay)/2.0];
+        $this->center = [($Cx+$Ax)/2.0, ($Cy+$Ay)/2.0];
         $this->angle = atan(abs($AB))*180/M_PI;//まずは0～90°ABと中心の上下左右関係や、傾きをもとに決定
         $midpoint_AB_y = $By+$Ay/2.0; $center_y = $this->center[1]; $center_x = $this->center[0];
         if(!is_infinite($AB))
@@ -324,30 +624,28 @@ class Rectangle extends Angle4
 
         if($AB!=0 && !is_infinite($AB))
         {
-            $AB_vertical_to_BC = (abs((($AB*$BC)+1)/(-1))<0.01);
-            $AB_parallel_to_CD = (abs($AB-$CD)/$AB<0.01);
-            $AB_vertical_to_DA = (abs((($AB*$DA)+1)/(-1))<0.01);
+            $AB_vertical_to_BC = (abs((($AB*$BC)+1)/(-1))<$this->judge);
+            $AB_parallel_to_CD = (abs($AB-$CD)/$AB<$this->judge);
+            $AB_vertical_to_DA = (abs((($AB*$DA)+1)/(-1))<$this->judge);
         }
         else
        if($AB==0)
         {
             $AB_vertical_to_BC = is_infinite($BC);
-            $AB_parallel_to_CD = abs($CD)<0.01;
+            $AB_parallel_to_CD = abs($CD)<$this->judge;
             $AB_vertical_to_DA = is_infinite($DA);
         }
         else
        {
-            $AB_vertical_to_BC = abs($BC)<0.01;
+           $AB_vertical_to_BC = abs($BC)<$this->judge;
             $AB_parallel_to_CD = is_infinite($CD);
-            $AB_vertical_to_DA = abs($DA)<0.01;
+            $AB_vertical_to_DA = abs($DA)<$this->judge;
         }
 
         if($AB_vertical_to_BC&&$AB_parallel_to_CD&&$AB_vertical_to_DA)
-        {
             parent::set_coords_8args($Ax, $Ay, $Bx, $By, $Cx, $Cy, $Dx, $Dy);
-        }
         else
-            new Exception("矩形ではありませんでした");
+            throw new Exception("矩形ではありませんでした。小さな矩形に対して角度が細かすぎ、「四辺全てが直角」でないと安定された可能性があります");
     }
 
     /**
@@ -365,6 +663,7 @@ class Rectangle extends Angle4
         $this->width = $width;
         $this->angle = $angle;
         $origin_centered = new Rectangle();//中心を原点に持ってきたインスタンスを作る
+        $origin_centered->set_judge(1);
         $origin_centered->set_coords
         ([[-$width/2, $height/2],  //A
           [ $width/2, $height/2],  //B
@@ -378,11 +677,27 @@ class Rectangle extends Angle4
 
     }
 
+    /**
+     * 幅の取得
+     */
+    function get_width():int{return $this->width;}
 
     /**
-     * 中心を軸に回転する
-     * @param float $angle
+     * 高さの取得
      */
+    function get_height():int{return $this->height;}
+
+    /**
+     * 角度の取得
+     */
+    function get_angle():float{return $this->angle;}
+
+    /**
+     * 中心座標の取得
+     */
+    function get_center():array{return $this->center;}
+
+/*
     function rotate_center(float $angle):void
     {
         $x = 0; $y = 1;
@@ -406,6 +721,7 @@ class Rectangle extends Angle4
         ->get_coords();
 
     }
+*/
 
 
 
@@ -513,4 +829,29 @@ class ConvexHullReducer
     function is_not_completed():bool{return count($this->coords)!=count($this->target->coords);}
 }
 */
+
+
+
+
+
+
+class Angle3Tester
+{
+    function __construct()
+    {
+        $angle3 = new Angle3();
+        $angle3->set_coords_6args(1, 2, 3, 4, 1, 0);
+        print $angle3->get_region()."\n";
+        if($angle3->has_eaten([3,2])) print "true\n";
+        else print "false\n";
+        $angle3->set_coords_6args(1, 2, 3, 4, 4, 0);
+        print $angle3->get_region()."\n";
+        if($angle3->has_eaten([3,2])) print "true\n";
+        else print "false\n";
+    }
+}
+
+new Angle3Tester();
+
+
 ?>
