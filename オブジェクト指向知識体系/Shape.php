@@ -47,7 +47,7 @@ class ShapeController
     }
 
     function get_shape(){return $this->shape;}
-    function get_coords(){return $this->shape->get_coords();}
+    function get_coords():array{return $this->shape->get_coords();}
 
 
     /**

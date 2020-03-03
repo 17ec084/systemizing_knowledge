@@ -1,6 +1,7 @@
 <?php
 require 'AAAReader.php';
 require 'Shape.php';
+require 'atan2_.php';
 /**
  * html5のCanvasのクラス
  * @author <a href=http://github.com/17ec084>Tomotaka Hirata(17ec084)</a>
@@ -152,6 +153,97 @@ class Canvas
     }
 
     /**
+     * 矢印の追加
+     * @param {type(矢印の種類 int 0～5) size(矢の終点マークの大きさ) from(開始座標) to(終了座標) color? width?}
+     */
+    function create_arrow(array $AAA):Canvas
+    {
+        $ar = new AAAReader($AAA);
+        $type = $ar->g("type");
+        if($type>=6) throw new Exception("typeが異常です");
+
+        $x = 0; $y = 1;
+
+        $start = $ar->g("from"); $end = $ar->g("to"); $size = $ar->g("size");
+        $angle = atan2_($end[$x]-$start[$x], $end[$y]-$start[$y]);
+
+        $abs = sqrt(($end[$x]-$start[$x])**2+($end[$y]-$start[$y])**2);
+        //まず下向きの矢印「↓」を生成。ただし始点を原点,Aとする。
+        //終点をBとする。
+        $A = [0, 0];
+        $B = [0, $abs];
+
+        //タイプ0の矢をBC、BDとする。タイプ1の矢は、タイプ0にCD(中点E)を加えたもの。
+        //タイプ2の矢はCDの線分を描画しない。BE＝EFなFを考え、CF,DFを描画。
+        $C = [ $size, $abs-  $size];
+        $D = [-$size, $abs-  $size];
+        $E = [     0, $abs-  $size];
+        $F = [     0, $abs-2*$size];
+
+
+        //ShapeControllerクラスに渡して傾ける＋平行移動
+        $arrow = new Shape();
+        $arrow->set_coords([$A, $B, $C, $D, $E, $F]);
+        $controller = new ShapeController($arrow);
+        $arrow = $controller->rotate_origin(90-$angle)->move($start[$x], $start[$y])->get_coords();
+        $A = $arrow[0]; $B = $arrow[1]; $C = $arrow[2]; $D = $arrow[3]; $E = $arrow[4]; $F = $arrow[5];
+
+        $this
+        ->add_script('ctx = document.getElementById("cv").getContext("2d");');
+        if($ar->g_has("width"))
+            $this->add_script('ctx.lineWidth = '.$ar->g("width").';');
+        if($ar->g_has("color"))
+            $this
+            ->add_script('ctx.strokeStyle = "#'.$ar->g("color").'";')
+            ->add_script('ctx.fillStyle = "#'.$ar->g("color").'";');
+
+        $this
+        ->add_script('ctx.beginPath();')
+        ->add_script('ctx.moveTo('.$A[$x].', '.$A[$y].');');
+
+        $stroke = 'ctx.stroke();';
+        $beginPath = 'ctx.beginPath();';
+
+        if($type%3 == 0)
+            $this
+            ->add_script('ctx.lineTo('.$B[$x].', '.$B[$y].');')
+            ->add_script($stroke);
+        if($type%3 == 1)
+            $this
+            ->add_script('ctx.lineTo('.$E[$x].', '.$E[$y].');')
+            ->add_script($stroke);
+        if($type%3 == 2)
+            $this
+            ->add_script('ctx.lineTo('.$F[$x].', '.$F[$y].');')
+            ->add_script($stroke);
+
+        $this
+        ->add_script($beginPath)
+        ->add_script('ctx.moveTo('.$C[$x].', '.$C[$y].');')
+        ->add_script('ctx.lineTo('.$B[$x].', '.$B[$y].');')
+        ->add_script('ctx.lineTo('.$D[$x].', '.$D[$y].');');
+
+        if($type%3 == 0)
+            return
+           $this
+            ->add_script($stroke)
+            ->add_script('ctx.restore();'."\n".'ctx.save()');
+        if($type%3 == 1)
+            $this->add_script('ctx.closePath();');
+        if($type%3 == 2)
+            $this
+            ->add_script('ctx.lineTo('.$F[$x].', '.$F[$y].');')
+            ->add_script('ctx.closePath();');
+
+        $this->add_script($stroke);
+
+        if($type >= 3)
+            $this->add_script('ctx.fill();');
+
+        return $this->add_script('ctx.restore();'."\n".'ctx.save()');
+    }
+
+    /**
      * Canvasを描画するhtml5コードを文字列として返却する
      */
     function get_code():string
@@ -209,6 +301,60 @@ class CanvasTester
             'text'=>'sample',
             'text_color'=>'ffffff',
             'text_size'=>150
+        ])
+        ->create_arrow
+        ([
+            'type'=>0,
+            'size'=>100,
+            'color'=>'FF0000',
+            'width'=>50,
+            'from'=>[2500, 2500],
+            'to'=>[3000,2500]
+        ])
+        ->create_arrow
+        ([
+            'type'=>1,
+            'size'=>150,
+            'color'=>'00FF00',
+            'width'=>10,
+            'from'=>[3000, 2500],
+            'to'=>[3500,2000]
+        ])
+        ->create_arrow
+        ([
+            'type'=>2,
+            'size'=>50,
+            'color'=>'0000FF',
+            'width'=>30,
+            'from'=>[3500, 2000],
+            'to'=>[3000,1500]
+        ])
+        ->create_arrow
+        ([
+            'type'=>3,
+            'size'=>300,
+            'color'=>'00FFFF',
+            'width'=>100,
+            'from'=>[3000, 1500],
+            'to'=>[2500,1500]
+        ])
+        ->create_arrow
+        ([
+            'type'=>4,
+            'size'=>100,
+            'color'=>'FF00FF',
+            'width'=>30,
+            'from'=>[2500, 1500],
+            'to'=>[2000,2000]
+        ])
+        ->create_arrow
+        ([
+            'type'=>5,
+            'size'=>100,
+            'color'=>'FFFF00',
+            'width'=>30,
+            'from'=>[2000, 2000],
+            'to'=>[2500,2500]
         ])
         ->get_code();
         file_put_contents("test.html", $cv->get_code());
