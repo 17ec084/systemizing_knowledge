@@ -14,23 +14,30 @@ class Canvas
     private $code;
     private $script;
 
-    function __construct(int $width, int $height)
+
+    function __construct(int $width, int $height, string $code=null, string $script=null)
     {
         $this->width = $width;
         $this->height = $height;
-        $this->code =
-        "<!DOCTYPE HTML>
-        <html lang=\"ja\">
-        <head>
-        <!-- 17ec084 safe_title --><title></title><!-- 17ec084 end safe_title -->
-        <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">
-        </head>
-        <body>
-        <canvas id=\"cv\" width=\"$width\" height=\"$height\" style=\"border: 1px solid #333333;\"></canvas>
-        <!-- 17ec084 safe_script --><script></script><!-- 17ec084 end safe_script -->
-        </body>
-        </html>";
-        $this->script = "";
+        if($code==null)
+            $this->code =
+"<!DOCTYPE HTML>
+<html lang=\"ja\">
+<head>
+<!-- 17ec084 safe_title --><title></title><!-- 17ec084 end safe_title -->
+<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">
+</head>
+<body>
+<canvas id=\"cv\" width=\"$width\" height=\"$height\" style=\"border: 1px solid #333333;\"></canvas>
+<input type=\"text\" id=\"png\">
+<!-- 17ec084 safe_script --><script></script><!-- 17ec084 end safe_script -->
+</body>
+</html>";
+        else $this->code = $code;
+        if($script==null)
+            $this->script = "";
+        else
+           $this->script = $script;
 
     }
 
@@ -114,7 +121,7 @@ class Canvas
             $this->add_script('ctx.fillText("'.$ar->g("text").'", '.(int)(($coords[0][$x]+$coords[2][$x])/2).', '.(int)(($coords[0][$y]+$coords[2][$y])/2).');');
         }
 
-        return $this->add_script('ctx.restore();'."\n".'ctx.save()');//初期化忘れずに.また一度restoreするとsaveの内容が消えるので、すぐsaveも実行。
+        return $this->add_script('ctx.restore();'."\n".'ctx.save();');//初期化忘れずに.また一度restoreするとsaveの内容が消えるので、すぐsaveも実行。
     }
 
     /**
@@ -149,7 +156,7 @@ class Canvas
                 $this->add_script('ctx.fillStyle = "#'.$ar->g("text_color").'";');
             $this->add_script('ctx.fillText("'.$ar->g("text").'", '.$ar->g("center")[0].', '.$ar->g("center")[1].');');
         }
-        return $this->add_script('ctx.restore();'."\n".'ctx.save()');
+        return $this->add_script('ctx.restore();'."\n".'ctx.save();');
     }
 
     /**
@@ -227,7 +234,7 @@ class Canvas
             return
            $this
             ->add_script($stroke)
-            ->add_script('ctx.restore();'."\n".'ctx.save()');
+            ->add_script('ctx.restore();'."\n".'ctx.save();');
         if($type%3 == 1)
             $this->add_script('ctx.closePath();');
         if($type%3 == 2)
@@ -240,7 +247,7 @@ class Canvas
         if($type >= 3)
             $this->add_script('ctx.fill();');
 
-        return $this->add_script('ctx.restore();'."\n".'ctx.save()');
+        return $this->add_script('ctx.restore();'."\n".'ctx.save();');
     }
 
     /**
@@ -259,6 +266,54 @@ ctx.save();
 $this->script</script><!-- 17ec084 end safe_script -->" ,
             $this->code
         );
+    }
+
+
+    /**
+     * <p>Canvasの内容をpngファイルとして取得<b>するためのhtmlファイルを文字列として返却</b>。</p>
+     * <p>Canvas.phpがCanvas生成javascriptを書き、dataurl(たぶんbase64)に変換したものを自動でpngGetter.phpへpost送信。
+     * pngGetter.phpは、post送信された情報を元に、pngファイルとして振る舞う。それか、file_put_contentsによりpngを出力する。できるなら両方やる</p>
+     * 参考: https://zakkiweb.net/a/lab-24/
+     * @return string
+     */
+    function get_png(string $filename):string
+    {
+        return
+        $this
+        ->get_deep_copy()
+        ->add_script('document.getElementById("png").value = document.getElementById("cv").toDataURL();')
+        ->add_script('
+xhr = new XMLHttpRequest();
+
+xhr.open("POST", "pngGetter.php");
+xhr.setRequestHeader("content-type", "application/x-www-form-urlencoded;charset=UTF-8");
+xhr.send("dataurl="+encodeURIComponent(document.getElementById("png").value)+"&filename='.$filename.'");
+
+result = xhr.onreadystatechange = function()
+{
+    if(xhr.readyState === 4 && xhr.status === 200)
+    {
+        if(xhr.responseText == "'.$filename.'")
+            alert("ここにページ遷移の処理を書く");
+        else
+        {
+            alert("pngファイルの生成に失敗しました");
+            document.write(xhr.responseText);
+            xhr.abort();
+        }
+    }
+};
+
+
+
+')
+        ->get_code();
+
+    }
+
+    function get_deep_copy():Canvas
+    {
+        return new Canvas($this->width, $this->height, $this->code, $this->script);
     }
 
 }
@@ -356,8 +411,9 @@ class CanvasTester
             'from'=>[2000, 2000],
             'to'=>[2500,2500]
         ])
-        ->get_code();
-        file_put_contents("test.html", $cv->get_code());
+        ->get_png("test.png");
+        file_put_contents("test.html", $cv->get_png("test.png"));
+        file_put_contents("test.png", $cv->get_png("test.png"));
     }
 }
 

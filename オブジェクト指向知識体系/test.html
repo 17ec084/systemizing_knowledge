@@ -1,12 +1,13 @@
 <!DOCTYPE HTML>
-        <html lang="ja">
-        <head>
-        <!-- 17ec084 safe_title --><title>テスト</title><!-- 17ec084 end safe_title -->
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        </head>
-        <body>
-        <canvas id="cv" width="5000" height="5000" style="border: 1px solid #333333;"></canvas>
-        <!-- 17ec084 safe_script --><script>
+<html lang="ja">
+<head>
+<!-- 17ec084 safe_title --><title>テスト</title><!-- 17ec084 end safe_title -->
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<body>
+<canvas id="cv" width="5000" height="5000" style="border: 1px solid #333333;"></canvas>
+<input type="text" id="png">
+<!-- 17ec084 safe_script --><script>
 ctx = document.getElementById("cv").getContext("2d");
 ctx.strokeStyle = "#000000";
 ctx.save();
@@ -22,7 +23,7 @@ ctx.stroke();
 ctx.fillStyle = "#ffffcc";
 ctx.fill();
 ctx.restore();
-ctx.save()
+ctx.save();
 ctx = document.getElementById("cv").getContext("2d");
 ctx.beginPath();
 ctx.moveTo(2147, 4060);
@@ -41,7 +42,7 @@ ctx.textBaseline = "middle";
 ctx.fillStyle = "#ffccff";
 ctx.fillText("17ec084", 2500, 3000);
 ctx.restore();
-ctx.save()
+ctx.save();
 ctx = document.getElementById("cv").getContext("2d");
 ctx.beginPath();
 ctx.arc(2000, 3500, 500, 0, 2*Math.PI, false);
@@ -55,7 +56,7 @@ ctx.textBaseline = "middle";
 ctx.fillStyle = "#ffffff";
 ctx.fillText("sample", 2000, 3500);
 ctx.restore();
-ctx.save()
+ctx.save();
 ctx = document.getElementById("cv").getContext("2d");
 ctx.lineWidth = 50;
 ctx.strokeStyle = "#FF0000";
@@ -70,7 +71,7 @@ ctx.lineTo(3000, 2500);
 ctx.lineTo(2900, 2600);
 ctx.stroke();
 ctx.restore();
-ctx.save()
+ctx.save();
 ctx = document.getElementById("cv").getContext("2d");
 ctx.lineWidth = 10;
 ctx.strokeStyle = "#00FF00";
@@ -86,7 +87,7 @@ ctx.lineTo(3500, 2212.132034356);
 ctx.closePath();
 ctx.stroke();
 ctx.restore();
-ctx.save()
+ctx.save();
 ctx = document.getElementById("cv").getContext("2d");
 ctx.lineWidth = 30;
 ctx.strokeStyle = "#0000FF";
@@ -103,7 +104,7 @@ ctx.lineTo(3070.7106781187, 1570.7106781187);
 ctx.closePath();
 ctx.stroke();
 ctx.restore();
-ctx.save()
+ctx.save();
 ctx = document.getElementById("cv").getContext("2d");
 ctx.lineWidth = 100;
 ctx.strokeStyle = "#00FFFF";
@@ -118,7 +119,7 @@ ctx.lineTo(2500, 1500);
 ctx.lineTo(2800, 1200);
 ctx.stroke();
 ctx.restore();
-ctx.save()
+ctx.save();
 ctx = document.getElementById("cv").getContext("2d");
 ctx.lineWidth = 30;
 ctx.strokeStyle = "#FF00FF";
@@ -135,7 +136,7 @@ ctx.closePath();
 ctx.stroke();
 ctx.fill();
 ctx.restore();
-ctx.save()
+ctx.save();
 ctx = document.getElementById("cv").getContext("2d");
 ctx.lineWidth = 30;
 ctx.strokeStyle = "#FFFF00";
@@ -153,7 +154,33 @@ ctx.closePath();
 ctx.stroke();
 ctx.fill();
 ctx.restore();
-ctx.save()
+ctx.save();
+document.getElementById("png").value = document.getElementById("cv").toDataURL();
+
+xhr = new XMLHttpRequest();
+
+xhr.open("POST", "pngGetter.php");
+xhr.setRequestHeader("content-type", "application/x-www-form-urlencoded;charset=UTF-8");
+xhr.send("dataurl="+encodeURIComponent(document.getElementById("png").value)+"&filename=test.png");
+
+result = xhr.onreadystatechange = function()
+{
+    if(xhr.readyState === 4 && xhr.status === 200)
+    {
+        if(xhr.responseText == "test.png")
+            alert("ここにページ遷移の処理を書く");
+        else
+        {
+            alert("pngファイルの生成に失敗しました");
+            document.write(xhr.responseText);
+            xhr.abort();
+        }
+    }
+};
+
+
+
+
 </script><!-- 17ec084 end safe_script -->
-        </body>
-        </html>
+</body>
+</html>
