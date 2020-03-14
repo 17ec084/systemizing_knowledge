@@ -5,5 +5,5 @@ hidden要素を読み取って変形するのがmain.jsである。
 ----
 **他者コンテンツについて**
 
-NasuM-Regular-20200227.ttfは[itouhiroはてなブログ](itouhiro.hatenablog.com/entry/20140917/font)で公開されていたフォントです。
+NasuM-Regular-20200227.ttfは[itouhiroはてなブログ](http://itouhiro.hatenablog.com/entry/20140917/font)で公開されていたフォントです。
 ライセンスはApache 2.0 Licenseです。
